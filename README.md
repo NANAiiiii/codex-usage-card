@@ -23,3 +23,7 @@ Windows 源码、测试和构建脚本位于 `windows/`；发布程序只放在 
 Fork 自 [Lorie7813/codex-usage-card](https://github.com/Lorie7813/codex-usage-card)。Windows 额度脚本基于其 [v0.9.4 Beta macOS 发布包](https://github.com/Lorie7813/codex-usage-card/releases/tag/v0.9.4-beta.1)修改，新增 Windows 应用激活、后台宿主和自动启动助手。
 
 保留原作者版权及 [MIT 许可证](LICENSE)。原项目的 macOS 文件和历史发布资料保持原有归属；macOS 用户请使用[上游项目](https://github.com/Lorie7813/codex-usage-card)，不要运行 Windows 助手。
+
+## 问题反馈
+
+Windows 版问题请到[本仓库 Issues](https://github.com/NANAiiiii/codex-usage-card/issues)，提供版本、复现步骤和脱敏错误信息。安全漏洞请走[私密报告](https://github.com/NANAiiiii/codex-usage-card/security/advisories/new)，不要公开登录信息或完整日志。详情见[安全与隐私说明](SECURITY.md)。

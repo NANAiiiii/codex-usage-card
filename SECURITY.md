@@ -1,37 +1,46 @@
-# Security & Privacy
+# 安全与隐私 — Windows fork
 
-Codex Usage Card is an **unofficial macOS add-on**. This page describes the **v0.9.4 Beta public release**, not a security guarantee for every computer, package, or future Codex release. This version has been installed and checked on one Mac: launch from the original Codex icon, automatic Ring display, usage readings and UI VERSION 53 all passed. Startup takes a few seconds longer than the previous version; this is a known experience difference. Other devices and future Codex versions remain unverified. The add-on has **not been Apple-notarized**.
+本说明适用于本仓库的 Windows 0.1.1 Preview 及当前 `windows` 分支，不代表 OpenAI 或上游作者的安全保证。项目是非官方实验性移植，仅完成单台 Windows 电脑的功能验收，不等于安全审计或多设备兼容验证。
 
-## What it accesses
+上游 macOS 项目的安全政策请见[原项目](https://github.com/Lorie7813/codex-usage-card/blob/main/SECURITY.md)。本 Windows 版不使用 LaunchAgents，不修改 macOS Dock，也不采用上游的输入空闲保护策略。
 
-- The current agent requests rate-limit data from the local Codex CLI **app-server** through a standard-input/output connection. The CLI may make its own authenticated network requests.
-- The add-on does not ask you to paste API keys, session cookies, or access tokens. It depends on your existing Codex login environment, which must remain private.
-- The reviewed usage-only agent does not scan local projects, request chat contents, or read Codex conversation SQLite databases. Legacy source modules for unrelated features are not part of the current agent build.
-- No independent analytics/telemetry upload has been identified in this reviewed add-on code path. This statement does **not** cover the Codex application or unrelated software.
-- Rate-limit data can contain account-related metadata and should not be shared unredacted.
+## 数据访问
 
-## Local debugging port: important risk
+- 通过已登录的本机 Codex CLI app-server 读取账户类型及额度；CLI 本身可能发起经过登录认证的网络请求。
+- 本工具不要求粘贴 API Key、Cookie 或访问令牌，不直接读取 auth.json、聊天数据库或项目内容，不调用模型。
+- 当前助手不采集按键文字、输入时间戳、鼠标轨迹或截图。键鼠操作不再作为跳过或取消接管的条件。
+- 本工具没有独立的分析统计上传功能；这不涵盖 Codex 客户端、CLI 或其他软件自身的数据处理。
+- 本地日志、进程信息和状态可能包含用户路径或额度元数据，分享前必须脱敏。
 
-The card is injected via Chrome DevTools Protocol using `127.0.0.1:39222`. The manager accepts only `ws:` URLs with a loopback host and the expected port `39222` before opening a connection. Debugging endpoints can evaluate JavaScript inside app windows, so they can provide access beyond usage statistics. Binding to the local computer does **not** provide authentication or isolation from other local processes. **Never forward this port to another device or network.** Do not run untrusted local software while relying on this protection alone.
+## 本机调试端口
 
-## What installation changes
+圆环通过 CDP 调试接口加载。客户端以 `127.0.0.1:39222` 启动，连接前核对监听进程属于指定 Codex，且监听地址全部为本机回环地址；WebSocket 地址也必须为预期回环地址、端口且不携带凭据。
 
-The installer copies files into your user application-support directory and registers per-user background LaunchAgents. It does not change files inside the signed Codex application bundle. The startup helper monitors application launch state and limited system input activity **counts/timestamps**, not keystroke text or screenshots. In strictly guarded circumstances it may request one orderly quit and hidden relaunch of a newly opened Codex process to enable the local debugging endpoint. No forced termination should be used if a quit is refused.
+**CDP 可以在应用页面执行代码，其权限超出读取额度。本机回环不是身份认证，也不能隔离其他本机进程。** 不要将 39222 端口转发到网络，不要在不可信本机软件运行时依赖此边界。
 
-**Installation boundary:** the installer does not call legacy launcher cleanup. It does not automatically modify Dock/Launchpad configuration, restart Dock, or move old shortcuts. Compatibility cleanup code remains in the package but is not invoked by installation. Existing shortcuts are left in place during installation. Explicit uninstall can move verified owned legacy add-on launcher entries to Trash, alongside the add-on's installed files/logs.
+停用助手不会关闭已经存在的调试端口；需完全退出 Codex 才能关闭该进程的端口。
 
-The native helper is ad-hoc signed, **not Apple-notarized**. The add-on relies on internal application interfaces and may stop working when Codex changes.
+## 启动行为及修改范围
 
-## Updates and local files
+- 程序解压在用户选定的可写目录；显式 `--enable` 才注册当前用户 Startup 内属于本工具的登录启动快捷方式。
+- `create-shortcuts.ps1` 只在本工具的“管理工具”目录创建入口，构建不修改开始菜单或启动项。
+- 助手通过真实 Explorer 桌面独立运行，排除监听前已存在的进程，只考虑新启动 30 秒内、前台单窗口的指定 Codex。
+- **允许键鼠操作期间接管，可能中断刚开始的打字、任务或切换焦点。** 不能接受启动时自动重开请不要启用。
+- 接管先记录尝试，再按 PID 与创建时间请求正常退出；两分钟冷却和重开抑制防止循环。不强杀，不提权，不改 Codex 安装包或系统安全策略。
+- 正常退出被拒绝或超时则放弃；停止信号或其他新实例会取消后续重开。不能保证所有退出拒绝或时序竞争场景都已验证。
 
-Automatic update execution remains disabled. This release omits legacy update shortcuts and the old `update.json`. Updater modules are retained for compatibility, installation locking, ownership checks, and safely disabling/quarantining a verified owned old updater. Their presence does not enable updates. Download future versions manually only after verifying their source and checksums.
+## 下载、更新与卸载
 
-Operational files and logs may reside in `~/Library/Application Support/CodexUsageBadge`, `~/Library/LaunchAgents`, `~/Library/Logs`, and `~/Library/Caches`. Some may reveal local paths, launch details or usage metadata. **Do not share them without careful redaction.**
+Windows 程序未签名；不要关闭系统安全保护来运行。只从[本仓库 Releases](https://github.com/NANAiiiii/codex-usage-card/releases)下载，并核对随版本发布的 SHA256SUMS.txt。校验值只能检查文件一致性，不代表文件无漏洞。
 
-## Reporting a problem
+本 Windows 版不自动下载或执行更新。更新前在旧目录停用，保存工作并完全退出 Codex，确认旧后台组件结束后再切换新目录；不要覆盖活动 EXE，也不要删除活动锁或冷却记录强行接管。
 
-Do not post credentials, user paths, raw `status` outputs, chat content, account identifiers, full debug logs or unreviewed screenshots in public Issues. For security-sensitive reports, use GitHub's private vulnerability reporting feature **if enabled**. If unavailable, provide only a non-sensitive summary publicly and request a private reporting channel.
+`runtime/` 保存日志、状态、活动锁及冷却记录，仅存本机，不提交仓库或发布包。卸载步骤见[维护说明](windows/docs/AUTO-ASSISTANT.md)，只删除归属已确认的本工具文件，不删除整个 Startup 或开始菜单目录，不卸载 Codex。
 
-## Distribution and licensing
+## 反馈与安全报告
 
-The public repository may contain documentation and a release archive without hosting the complete development source tree. **The release archive itself includes human-readable JavaScript and helper scripts** needed for operation, and should not be considered opaque or private. Applicable MIT license and copyright statements are included.
+普通功能问题请提交到[本 fork 的 Issues](https://github.com/NANAiiiii/codex-usage-card/issues)，附 Windows/Codex/Node 版本、工具版本、复现步骤及脱敏后的错误信息。Windows 移植问题请勿默认提交给上游作者。
+
+安全漏洞请使用 [GitHub 私密漏洞报告](https://github.com/NANAiiiii/codex-usage-card/security/advisories/new)，不要在公开 Issue 中披露可利用细节、凭据、聊天内容、账号标识或完整未脱敏日志。若私密入口暂不可用，只公开说明需要私密联系，不公开敏感细节。
+
+当前为个人维护的 Preview，优先处理当前 Windows 版本的报告；不承诺响应或修复时限，旧版本用户请先核对当前发布版及已知限制。

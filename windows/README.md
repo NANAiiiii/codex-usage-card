@@ -48,3 +48,5 @@ node --test tests/windows.test.cjs
 上游 ZIP SHA256：`e41cbb00fd01b785eb0cac73a946115a35dd2d9a2410c196ec7287ce4b1737f8`；原 agent.cjs SHA256：`2727a6e47c71503bbc8d2171520bcd41aff851fa3b1efc7e8319974145977683`。
 
 额度通过本机 Codex CLI app-server 读取；不直接读 auth.json、Cookie、聊天数据库，不调用模型。日志和状态只保存在本地 runtime/，分享前去除个人路径等信息。CDP 调试权限很高，本机不等于有身份认证，不要转发 39222 端口或同时运行不可信软件。
+
+普通问题请到[本仓库 Issues](https://github.com/NANAiiiii/codex-usage-card/issues)，附版本、复现步骤和脱敏错误信息；安全漏洞请使用[私密报告](https://github.com/NANAiiiii/codex-usage-card/security/advisories/new)。不要公开登录信息、聊天内容或完整日志，见[安全说明](https://github.com/NANAiiiii/codex-usage-card/blob/windows/SECURITY.md)。

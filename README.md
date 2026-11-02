@@ -1,96 +1,25 @@
-# Codex Usage Card
+# Codex Usage Card — Windows fork
 
-## Windows experimental fork
+在 Codex 侧栏显示五小时和每周剩余额度。非官方实验性 Windows 移植，不是 OpenAI 官方插件，也不是原作者维护或认可的 Windows 版本。
 
-This fork adds a Windows implementation based on upstream v0.9.4 Beta.
-See [Windows usage, build instructions and safety limitations](windows/README.md).
-Windows original-icon handoff was verified once on the development PC on 2026-11-02.
-See [Windows experimental downloads](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.0-windows-preview.1).
-Earlier starts triggered the input guard for an unresolved reason; this is not a stable or broadly verified release.
-The macOS documentation below is retained from [Lorie7813/codex-usage-card](https://github.com/Lorie7813/codex-usage-card).
-This fork is unofficial and is not affiliated with OpenAI or endorsed by the upstream author.
+## Windows 0.1.1 Preview
 
-**Track your Codex usage directly in the sidebar.**
+[下载 ZIP 和 SHA256 校验值](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.1-windows-preview.1) · [安装与构建](windows/README.md) · [工作原理、限制及卸载](windows/docs/AUTO-ASSISTANT.md)
 
-Codex Usage Card is an **unofficial macOS add-on** for the Codex desktop app. It displays your remaining usage allowance as compact progress rings in the sidebar, without adding a separate app icon.
+- 登录 Windows 后助手独立运行；从 Codex 原图标打开时，尝试自动加载额度圆环。
+- 支持新进程最长 30 秒的冷启动等待，不需要停手等待；键鼠输入不再阻止接管。
+- **首次接管需要正常退出并重开 Codex，可能打断刚开始的输入或任务、切换焦点。** 不能接受该行为请勿启用。
+- 不修改客户端安装包、不提权、不强杀。仅本机调试接口仍有较高权限，不要转发端口。
 
-**Status:** v0.9.4 Beta publicly released on 2026-10-28 · macOS only. This version has been installed and checked on one Mac: launch from the original Codex icon, automatic Ring display, usage readings and UI VERSION 53 all passed. Startup takes a few seconds longer than the previous version; this is a known experience difference. Other devices and future Codex versions remain unverified. This project is **not affiliated with or endorsed by OpenAI**.
+2026-11-02 已在一台 Windows 开发机验证原图标接管、电脑重启后的登录自启、圆环显示和额度刷新。其他设备及未来客户端版本仍未验证，不是稳定版。
 
-## Features
+## 开发与目录
 
-- Remaining usage as a percentage, not context-window size or conversation tokens.
-- Separate 5-hour and weekly usage rings when the account and available rate-limit data support them. Other accounts may show one ring or unavailable data.
-- Reset-time details on hover or keyboard focus, when provided by the client.
-- Light and dark themes, accessible focus behavior, and a compact sidebar layout.
-- Automatic loading when opening Codex through its original icon **under supported startup conditions**; no separate launcher is needed.
+Windows 源码、测试和构建脚本位于 `windows/`；发布程序只放在 Releases，日志、个人配置和本机快捷方式不提交。
+默认分支 `windows` 维护 Windows 移植；保留原项目提交历史，没有向上游提交 PR。
 
-## Requirements
+## 来源与许可
 
-- macOS and an installed, signed-in Codex desktop application with an accessible bundled Codex CLI.
-- Node.js **24 or later** for the installer. The launcher checks common bundled Node locations as well as your installed Node.
-- A compatible Codex desktop version. This integration uses internal interfaces that may change without notice.
+Fork 自 [Lorie7813/codex-usage-card](https://github.com/Lorie7813/codex-usage-card)。Windows 额度脚本基于其 [v0.9.4 Beta macOS 发布包](https://github.com/Lorie7813/codex-usage-card/releases/tag/v0.9.4-beta.1)修改，新增 Windows 应用激活、后台宿主和自动启动助手。
 
-> **Important:** The installer and native startup helper are not Apple-notarized. Only install software you have independently decided to trust. Verify the Release checksum; do not disable macOS system-wide security protections.
-
-## Install (macOS)
-
-1. Download the macOS ZIP and `SHA256SUMS.txt` from the [published v0.9.4 Beta Release](https://github.com/Lorie7813/codex-usage-card/releases/tag/v0.9.4-beta.1).
-2. Verify the ZIP checksum against the separately published SHA256 value, then fully extract it:
-
-   ```bash
-   shasum -a 256 CodexUsageCard-macOS-0.9.4.zip
-   ```
-
-3. With the extracted release open, run `安装.command` (Install), or use the terminal in the folder containing `manage.cjs`:
-
-   ```bash
-   node manage.cjs install
-   ```
-
-4. Save your work, completely quit Codex with **⌘Q**, and then launch it normally using its **original icon**. Under supported conditions, the startup helper may perform **one guarded, automatic restart** to enable the local connection needed for the usage card. This may add a short delay; it must not repeatedly restart an active work session.
-5. Check whether the rings appear and show valid usage data. Availability depends on your account, login environment and the desktop client.
-
-The installer registers per-user background tasks. This release does **not** automatically clean up legacy shortcuts, change Dock/Launchpad configuration, restart the Dock, or move existing shortcuts during installation. Compatibility cleanup code remains packaged but is not called by the installer. It does not modify the Codex application bundle or its signature.
-
-**Existing manual-test installations:** A previously saved observation-only setting may persist across reinstallations and prevent automatic loading. Do not repeatedly reinstall or disable safeguards to force it to work; see [macOS help](docs/macos.md).
-
-## Manage or uninstall
-
-Run in the extracted release directory:
-
-```bash
-node manage.cjs status
-node manage.cjs uninstall
-```
-
-The status output can contain local paths, account or usage metadata, and installation details. **Remove private information before sharing it.** Uninstall stops the add-on tasks and moves relevant installed files/logs and any verified owned legacy launcher entries to the Trash; it does not uninstall Codex.
-
-Automatic updates are **disabled** in this Beta. This release omits legacy update shortcuts and the old update metadata. Updater modules remain only for compatibility, locking, ownership checks and safely disabling/quarantining an owned old updater. Obtain future versions manually from this project's Releases page and verify their checksums.
-
-## Privacy and limitations
-
-- The add-on reads rate-limit information through the local Codex CLI app-server connection and renders it in the Codex sidebar.
-- The current usage agent does **not** scan your projects, request chat contents, or read the Codex conversation database. No separate telemetry upload has been identified in the reviewed add-on path. This does not describe the Codex client's own data handling.
-- To display the card, the add-on uses a loopback Chrome DevTools Protocol endpoint. **Other local software may be able to access this powerful debugging interface. Never forward or expose its port.**
-- Internal app-server APIs and sidebar structure can change, breaking the add-on.
-- The public repository is intended for documentation and reviewed release archives, **not the full development repository**. The install ZIP nevertheless contains readable JavaScript and helper scripts necessary for operation. This macOS release omits the old cover image, Windows and historical development documents.
-
-Read [Installation and troubleshooting](docs/macos.md) and [Security & privacy](SECURITY.md) before installing.
-
-## License
-
-Distributed under the applicable [MIT license](LICENSE). The original copyright notice and license terms are preserved in the repository and installation package. This is an independent, unofficial add-on; it is not an OpenAI product.
-
----
-
-## 中文说明
-
-**Codex Usage Card** 是一款非官方 macOS 插件，可在 Codex 桌面客户端的侧栏显示**剩余额度**。支持在相应账号数据可用时分别显示 5 小时、每周额度圆环，并提供重置时间提示。
-
-**当前版本：v0.9.4 Beta 已公开发布（2026 年 10 月 28 日），仅针对 macOS 维护。** 已在一台 Mac 上实际安装，原 Codex 图标启动、Ring 自动显示、额度读取和 UI VERSION 53 均通过。启动比原版本慢几秒，记录为已知体验差异；其他设备和未来 Codex 版本未验证。
-
-**安装方法：** 从本项目 Releases 下载 macOS ZIP 和 SHA256 校验信息，核对后完整解压。在解压目录运行 `安装.command`，或使用 Node.js 24+ 执行 `node manage.cjs install`。保存工作并按 **⌘Q** 退出 Codex，再点击**原来的 Codex 图标**启动。为连接本地调试接口，插件可能在符合安全条件时自动重新打开一次客户端。
-
-**重要提醒：** 安装包未经 Apple 公证；不要关闭系统级安全防护。插件使用本机调试端口，该接口具备较高权限，请勿转发或开放给其他设备。管理器仅接受指定端口的本机 WebSocket 地址，但本机地址校验并不提供身份认证。安装不会自动清理 Dock、Launchpad 或移动旧快捷方式，也不会重启 Dock。自动更新保持禁用，包内不提供更新快捷入口。卸载可在解压目录运行 `node manage.cjs uninstall`。
-
-本项目与 OpenAI 无官方关联；保留适用的 MIT 许可证及原始版权声明。完整细节请阅读英文说明、[LICENSE](LICENSE) 和 [安全隐私说明](SECURITY.md)。
+保留原作者版权及 [MIT 许可证](LICENSE)。原项目的 macOS 文件和历史发布资料保持原有归属；macOS 用户请使用[上游项目](https://github.com/Lorie7813/codex-usage-card)，不要运行 Windows 助手。

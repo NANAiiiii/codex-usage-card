@@ -25,6 +25,9 @@ jobs:
           $p=Start-Process -FilePath ./windows/artifacts/portable/Codex-Usage-AutoHelper.exe -ArgumentList '--self-test' -PassThru -WindowStyle Hidden
           $p.WaitForExit()
           if($p.ExitCode -ne 0){throw 'Native self-test failed'}
+      - name: Cold-start boundaries and input-allowed policy
+        shell: powershell
+        run: ./windows/tests/cold-start.ps1 -Executable ./windows/artifacts/portable/Codex-Usage-AutoHelper.exe
       - name: Package allowlisted files
         shell: powershell
         run: ./windows/package.ps1

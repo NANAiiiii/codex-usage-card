@@ -12,6 +12,7 @@ using System.Reflection;
 
 // Experimental Windows original-icon helper. Never edits or force-kills Codex.
 internal static class AutoAssistant {
+    const double MaxStartupAgeMs=30000;
     static readonly string Root=AppDomain.CurrentDomain.BaseDirectory;
     static readonly string Run=Path.Combine(Root,"runtime");
     static readonly string Exe=Path.Combine(Root,"Codex-Usage-AutoHelper.exe");
@@ -20,11 +21,8 @@ internal static class AutoAssistant {
     static string Name {
         get { using(var hash=SHA256.Create()) return "Local\\CodexUsageAuto."+BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(Root.ToLowerInvariant()))).Replace("-","").Substring(0,16); }
     }
-    [StructLayout(LayoutKind.Sequential)] struct LastInput { public uint size; public uint tick; }
     [StructLayout(LayoutKind.Sequential)] struct FileTime { public uint low,high; }
     [StructLayout(LayoutKind.Sequential)] struct UniqueProcess { public uint pid; public FileTime started; }
-    [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LastInput value);
-    [DllImport("kernel32.dll")] static extern uint GetTickCount();
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window,out uint pid);
     delegate bool EnumWindow(IntPtr window,IntPtr data);
@@ -69,11 +67,6 @@ internal static class AutoAssistant {
         }).ToArray();
     }
     static uint Foreground() { uint pid;GetWindowThreadProcessId(GetForegroundWindow(),out pid);return pid; }
-    static uint InputStamp() {
-        LastInput value=new LastInput {size=(uint)Marshal.SizeOf(typeof(LastInput))};
-        if(!GetLastInputInfo(ref value)) throw new Exception("无法获取输入时间，跳过自动接管。");
-        return value.tick;
-    }
     static int WindowCount(int pid) {
         int count=0;
         EnumWindows(delegate(IntPtr w,IntPtr unused) {
@@ -83,9 +76,8 @@ internal static class AutoAssistant {
         },IntPtr.Zero);
         return count;
     }
-    internal static string Decision(double age,double idle,bool foreground,int windows,bool cooling,bool portBusy) {
-        if(age<0 || age>8000) return "skip-old-session";
-        if(idle<age) return "skip-user-input";
+    internal static string Decision(double age,bool foreground,int windows,bool cooling,bool portBusy) {
+        if(age<0 || age>MaxStartupAgeMs) return "skip-old-session";
         if(!foreground) return "skip-background";
         if(windows!=1) return "skip-multiple-or-no-windows";
         if(portBusy) return "port-already-present";
@@ -151,7 +143,7 @@ internal static class AutoAssistant {
                 string app=RegisteredApp();
                 DateTime baseline=DateTime.UtcNow,lastAttempt=LastAttempt(),suppressUntil=DateTime.MinValue;
                 var seen=new System.Collections.Generic.HashSet<string>();
-                Log("watching; existing sessions excluded; pid="+Process.GetCurrentProcess().Id);
+                Log("watching; existing sessions excluded; keyboard/mouse allowed; pid="+Process.GetCurrentProcess().Id);
                 while(!stop.WaitOne(1000)) {
                     try {
                         var all=Apps(app);
@@ -165,19 +157,15 @@ internal static class AutoAssistant {
                                 seen.Add(key);
                                 if(started<=baseline || DateTime.UtcNow<suppressUntil) continue;
                                 double age=(DateTime.UtcNow-started).TotalMilliseconds;
-                                uint stamp=InputStamp();
-                                double idle=unchecked(GetTickCount()-stamp);
-                                string decision=Decision(age,idle,Foreground()==p.Id,WindowCount(p.Id),
+                                string decision=Decision(age,Foreground()==p.Id,WindowCount(p.Id),
                                     (DateTime.UtcNow-lastAttempt).TotalSeconds<120,PortBusy());
                                 if(decision=="port-already-present") { Log("attach-existing-port; pid="+p.Id);StartAgent();continue; }
                                 if(decision!="handoff") {
-                                    Log(decision+"; pid="+p.Id+"; ageMs="+age.ToString("F1",System.Globalization.CultureInfo.InvariantCulture)
-                                        +"; idleMs="+idle.ToString("F1",System.Globalization.CultureInfo.InvariantCulture)
-                                        +"; inputAfterStartMs="+(age-idle).ToString("F1",System.Globalization.CultureInfo.InvariantCulture));
+                                    Log(decision+"; pid="+p.Id+"; ageMs="+age.ToString("F1",System.Globalization.CultureInfo.InvariantCulture));
                                     continue;
                                 }
                                 lastAttempt=DateTime.UtcNow;SaveAttempt(lastAttempt); // receipt before any quit request
-                                if(stop.WaitOne(0) || InputStamp()!=stamp || Foreground()!=p.Id) {Log("canceled-before-quit");continue;}
+                                if(stop.WaitOne(0) || Foreground()!=p.Id) {Log("canceled-before-quit");continue;}
                                 Log("request-graceful-quit; pid="+p.Id);
                                 int result=RequestQuit(p);
                                 bool absent=false;
@@ -190,11 +178,11 @@ internal static class AutoAssistant {
                                 }
                                 if(!absent) {
                                     Log("quit-refused-or-timeout; code="+result+"; no force used");
-                                    if(InputStamp()==stamp && !stop.WaitOne(0)) RestoreNormal(app);
+                                    if(!stop.WaitOne(0) && Foreground()==p.Id) RestoreNormal(app);
                                     continue;
                                 }
-                                // New input after quit cancels the handoff; do not steal focus by reopening.
-                                if(stop.WaitOne(0) || InputStamp()!=stamp) { Log("handoff-canceled-after-quit; reopen Codex manually");continue; }
+                                // User authorized one startup handoff even while using keyboard/mouse.
+                                if(stop.WaitOne(0)) { Log("handoff-canceled-after-quit; reopen Codex manually");continue; }
                                 var raced=Apps(app);
                                 bool another=raced.Length>0;foreach(var r in raced)r.Dispose();
                                 if(another){Log("another-instance-started; handoff skipped");continue;}
@@ -259,17 +247,23 @@ internal static class AutoAssistant {
     static int Tests() {
         int passed=0;
         Action<bool> check=delegate(bool ok){if(!ok)throw new Exception("Auto helper policy test failed at "+passed);passed++;};
-        check(Decision(1000,1100,true,1,false,false)=="handoff");
-        check(Decision(9000,10000,true,1,false,false)=="skip-old-session");
-        check(Decision(-1,10000,true,1,false,false)=="skip-old-session");
-        check(Decision(1000,500,true,1,false,false)=="skip-user-input");
-        check(Decision(1000,2000,false,1,false,false)=="skip-background");
-        check(Decision(1000,2000,true,2,false,false)=="skip-multiple-or-no-windows");
-        check(Decision(1000,2000,true,0,false,false)=="skip-multiple-or-no-windows");
-        check(Decision(1000,2000,true,1,true,false)=="skip-cooldown");
-        check(Decision(1000,2000,true,1,false,true)=="port-already-present");
-        check(Decision(9000,10000,true,1,false,true)=="skip-old-session");
-        check(Decision(1000,2000,false,1,false,true)=="skip-background");
+        check(Decision(1000,true,1,false,false)=="handoff");
+        check(Decision(30001,true,1,false,false)=="skip-old-session");
+        check(Decision(-1,true,1,false,false)=="skip-old-session");
+        check(Decision(3502,true,1,false,false)=="handoff");
+        check(Decision(1000,false,1,false,false)=="skip-background");
+        check(Decision(1000,true,2,false,false)=="skip-multiple-or-no-windows");
+        check(Decision(1000,true,0,false,false)=="skip-multiple-or-no-windows");
+        check(Decision(1000,true,1,true,false)=="skip-cooldown");
+        check(Decision(1000,true,1,false,true)=="port-already-present");
+        check(Decision(30001,true,1,false,true)=="skip-old-session");
+        check(Decision(1000,false,1,false,true)=="skip-background");
+        check(Decision(16585,true,1,false,false)=="handoff");
+        check(Decision(30000,true,1,false,false)=="handoff");
+        check(Decision(4865,true,1,false,false)=="handoff");
+        check(Decision(16585,false,1,false,false)=="skip-background");
+        check(Decision(16585,true,2,false,false)=="skip-multiple-or-no-windows");
+        check(Decision(16585,true,1,true,false)=="skip-cooldown");
         Log("self-test: "+passed+" policy cases passed; no client operated");
         return 0;
     }

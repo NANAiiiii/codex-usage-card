@@ -1,5 +1,15 @@
 # Changelog
 
+## Windows 0.1.1 Preview — 2026-11-02
+
+- Extend fresh-process startup detection to 30 seconds for cold starts.
+- Allow keyboard/mouse activity during the single startup handoff; this can interrupt newly started work or change focus. Keep baseline, foreground, single-window, cooldown and no-force-kill protections.
+- Launch the watcher through the real Explorer desktop so it survives the originating launcher; retain per-user login startup.
+- Verified on one Windows PC for both normal launch and reboot/login startup, handoff, visible rings and live quota. Other devices and versions remain unverified.
+- Preserve upstream MIT attribution; exclude local state, credentials, machine shortcuts and unverified icons from the portable release. Existing 0.1.0 release assets are unchanged.
+
+The entries below describe the original macOS project.
+
 ## v0.9.4 Beta — first public release (macOS, 2026-10-28)
 
 - Usage-only sidebar card with remaining-rate-limit ring(s); separate 5-hour and weekly rings when the rate-limit response supports them.

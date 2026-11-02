@@ -123,6 +123,17 @@ test('Node lookup is portable and checks the supported version',()=>{
   assert.match(source,/major < 24/);
   assert.doesNotMatch(source,/[A-Z]:\\/);
 });
+test('release packaging and user docs describe the current input-allowed preview',()=>{
+  const root=path.join(__dirname,'..');
+  const packaging=fs.readFileSync(path.join(root,'package.ps1'),'utf8');
+  assert.match(packaging,/CodexUsageCard-Windows-0\.1\.1-preview\.1.zip/);
+  assert.match(packaging,/Unexpected files in/);
+  assert.match(packaging,/ReparsePoint/);
+  const readme=fs.readFileSync(path.join(root,'README.md'),'utf8');
+  assert.match(readme,/v0\.1\.1-windows-preview\.1/);
+  assert.match(readme,/可能打断/);
+  assert.doesNotMatch(readme,/尚待验收|未发布改动/);
+});
 test('shortcut generation is local and the helper uses its management folder',()=>{
   const root=path.join(__dirname,'..');
   const source=fs.readFileSync(path.join(root,'src','AutoAssistant.cs'),'utf8');
@@ -145,8 +156,9 @@ test('experimental auto assistant has no force-kill or package/security modifica
   assert.match(source,/RmShutdown\(session,0,IntPtr.Zero\)/);
   assert.match(source,/started<=baseline/);
   assert.match(source,/SaveAttempt\(lastAttempt\)/);
-  assert.match(source,/InputStamp\(\)!=stamp/);
-  assert.match(source,/inputAfterStartMs=/);
+  assert.doesNotMatch(source,/InputStamp|GetLastInputInfo|skip-user-input/);
+  assert.match(source,/stop.WaitOne\(0\) \|\| Foreground\(\)!=p.Id/);
+  assert.match(source,/if\(another\)/);
   assert.doesNotMatch(source,/\.Kill\(|TerminateProcess|Set-ExecutionPolicy|EnableDebugging|takeown|icacls|runas/i);
 });
 function fakeChild(exitCode) {

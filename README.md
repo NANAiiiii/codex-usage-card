@@ -1,5 +1,13 @@
 # Codex Usage Card
 
+## Windows experimental fork
+
+This fork adds a Windows implementation based on upstream v0.9.4 Beta.
+See [Windows usage, build instructions and safety limitations](windows/README.md).
+Windows original-icon handoff is **not yet live verified**; no Windows release is published yet.
+The macOS documentation below is retained from [Lorie7813/codex-usage-card](https://github.com/Lorie7813/codex-usage-card).
+This fork is unofficial and is not affiliated with OpenAI or endorsed by the upstream author.
+
 **Track your Codex usage directly in the sidebar.**
 
 Codex Usage Card is an **unofficial macOS add-on** for the Codex desktop app. It displays your remaining usage allowance as compact progress rings in the sidebar, without adding a separate app icon.

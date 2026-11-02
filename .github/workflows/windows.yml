@@ -1,0 +1,30 @@
+name: Windows preview checks
+on:
+  push:
+    branches: [windows]
+  pull_request:
+    branches: [windows]
+permissions:
+  contents: read
+jobs:
+  test-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Unit tests
+        run: node --test windows/tests/windows.test.cjs
+      - name: Build portable folder
+        shell: powershell
+        run: ./windows/build-auto-helper.ps1
+      - name: Native policy self-test
+        shell: powershell
+        run: |
+          $p=Start-Process -FilePath ./windows/artifacts/portable/Codex-Usage-AutoHelper.exe -ArgumentList '--self-test' -PassThru -WindowStyle Hidden
+          $p.WaitForExit()
+          if($p.ExitCode -ne 0){throw 'Native self-test failed'}
+      - name: Package allowlisted files
+        shell: powershell
+        run: ./windows/package.ps1

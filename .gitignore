@@ -1,0 +1,7 @@
+/windows/runtime/
+/windows/config.json
+/windows/artifacts/
+*.exe
+*.lnk
+Thumbs.db
+Desktop.ini

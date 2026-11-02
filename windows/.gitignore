@@ -1,0 +1,11 @@
+# Local state, paths, and machine-generated shortcuts
+/runtime/
+/config.json
+*.lnk
+# Build outputs are distributed separately from source
+*.exe
+/artifacts/
+# Editors and operating system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

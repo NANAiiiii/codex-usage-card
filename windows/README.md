@@ -28,7 +28,7 @@
 
 ## 开发与验证
 
-要求 Node.js 24+、Windows PowerShell 5.1 和 .NET Framework 4 编译器，无第三方 npm 依赖。在此目录执行：
+要求 Node.js 24+、Windows PowerShell 5.1 和 .NET Framework 4 编译器，无第三方 npm 依赖。在克隆仓库的 `windows/` 源码目录执行；便携 ZIP 不包含源码和测试：
 
 ```powershell
 node --test tests/windows.test.cjs

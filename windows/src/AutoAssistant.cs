@@ -15,7 +15,6 @@ internal static class AutoAssistant {
     static readonly string Root=AppDomain.CurrentDomain.BaseDirectory;
     static readonly string Run=Path.Combine(Root,"runtime");
     static readonly string Exe=Path.Combine(Root,"Codex-Usage-AutoHelper.exe");
-    static readonly string LocalLink=Path.Combine(Root,"管理工具","自动启动助手.lnk");
     static readonly string LoginLink=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup),"Codex Usage AutoHelper.lnk");
     static readonly int CurrentSession=Process.GetCurrentProcess().SessionId;
     static string Name {
@@ -207,6 +206,38 @@ internal static class AutoAssistant {
         return 0;
     }
     static void Stop() {try{using(var signal=EventWaitHandle.OpenExisting(Name+".Stop"))signal.Set();}catch(WaitHandleCannotBeOpenedException){}}
+    static void StartDetached() {
+        // Resolve the real Explorer desktop; a new Shell.Application alone can run in-process.
+        dynamic shell=Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application"));
+        dynamic windows=null,desktop=null,document=null,application=null;
+        try {
+            windows=shell.Windows();
+            int handle;
+            desktop=windows.FindWindowSW(0,0,8,out handle,1);
+            if(desktop==null) throw new Exception("找不到 Windows 桌面外壳，未启动监听；请从正常桌面登录后重试。");
+            document=desktop.Document;
+            application=document.Application;
+            application.ShellExecute(Exe,"--watch",Root,"open",0);
+        } finally {
+            foreach(object value in new object[]{application,document,desktop,windows,shell})
+                if(value!=null)Marshal.FinalReleaseComObject(value);
+        }
+    }
+    static void CreateLoginLink() {
+        Type type=Type.GetTypeFromProgID("WScript.Shell");
+        object shell=Activator.CreateInstance(type),shortcut=null;
+        try {
+            shortcut=type.InvokeMember("CreateShortcut",BindingFlags.InvokeMethod,null,shell,new object[]{LoginLink});
+            Type linkType=shortcut.GetType();
+            linkType.InvokeMember("TargetPath",BindingFlags.SetProperty,null,shortcut,new object[]{Exe});
+            linkType.InvokeMember("Arguments",BindingFlags.SetProperty,null,shortcut,new object[]{"--run"});
+            linkType.InvokeMember("WorkingDirectory",BindingFlags.SetProperty,null,shortcut,new object[]{Root});
+            linkType.InvokeMember("Save",BindingFlags.InvokeMethod,null,shortcut,null);
+        } finally {
+            if(shortcut!=null)Marshal.FinalReleaseComObject(shortcut);
+            Marshal.FinalReleaseComObject(shell);
+        }
+    }
     static bool OwnedLoginLink() {
         Type shellType=Type.GetTypeFromProgID("WScript.Shell");
         object shell=Activator.CreateInstance(shellType),shortcut=null;
@@ -251,15 +282,16 @@ internal static class AutoAssistant {
             }
             if(mode=="--enable") {
                 if(File.Exists(LoginLink) && !OwnedLoginLink())throw new Exception("登录位置已有不同的快捷方式，未覆盖。");
-                File.Copy(LocalLink,LoginLink,true);
+                CreateLoginLink();
                 Log("enabled; per-user login startup registered");
-                Process.Start(new ProcessStartInfo(Exe,"--run"){UseShellExecute=true,WorkingDirectory=Root}).Dispose();return 0;
+                StartDetached();return 0;
             }
             if(mode=="--status") {
                 string file=Path.Combine(Run,"auto-status.txt");
                 MessageBox.Show((File.Exists(file)?File.ReadAllText(file):"助手尚未运行")+"\n随登录启动："+File.Exists(LoginLink),"自动助手状态");return 0;
             }
-            if(mode!="--run")throw new Exception("未知参数。");
+            if(mode=="--run"){StartDetached();return 0;}
+            if(mode!="--watch")throw new Exception("未知参数。");
             return Watch();
         } catch(Exception e) {try{Log("fatal: "+e.Message);}catch{} MessageBox.Show(e.Message,"额度卡片自动助手",MessageBoxButtons.OK,MessageBoxIcon.Warning);return 1;}
     }

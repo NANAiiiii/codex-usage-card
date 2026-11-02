@@ -111,7 +111,7 @@ test('automatic helper uses its private agent',()=>{
 });
 test('the root exposes only the automatic assistant executable',()=>{
   const root=path.join(__dirname,'..');
-  assert.deepEqual(fs.readdirSync(root).filter(name=>name.endsWith('.exe')),[]);
+  assert.ok(fs.readdirSync(root).filter(name=>name.endsWith('.exe')).every(name=>name==='Codex-Usage-AutoHelper.exe'));
   assert.deepEqual(fs.readdirSync(root).filter(name=>name.endsWith('.cmd')),[]);
   const build=fs.readFileSync(path.join(root,'build-auto-helper.ps1'),'utf8');
   assert.match(build,/Codex-Usage-AutoHelper.exe/);
@@ -126,10 +126,19 @@ test('Node lookup is portable and checks the supported version',()=>{
 test('shortcut generation is local and the helper uses its management folder',()=>{
   const root=path.join(__dirname,'..');
   const source=fs.readFileSync(path.join(root,'src','AutoAssistant.cs'),'utf8');
-  assert.match(source,/Path.Combine\(Root,"管理工具","自动启动助手.lnk"\)/);
+  assert.match(source,/CreateLoginLink\(\)/);
+  assert.doesNotMatch(source,/File.Copy\(LocalLink/);
   const shortcuts=fs.readFileSync(path.join(root,'create-shortcuts.ps1'),'utf8');
   assert.match(shortcuts,/管理工具/);
   assert.doesNotMatch(shortcuts,/SpecialFolder|Startup/);
+});
+test('watcher is launched by desktop shell rather than inheriting the Codex launcher lifetime',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','src','AutoAssistant.cs'),'utf8');
+  assert.match(source,/GetTypeFromProgID\("Shell.Application"\)/);
+  assert.match(source,/FindWindowSW\(0,0,8,out handle,1\)/);
+  assert.match(source,/application.ShellExecute\(Exe,"--watch",Root,"open",0\)/);
+  assert.match(source,/if\(mode=="--run"\)\{StartDetached\(\);return 0;\}/);
+  assert.doesNotMatch(source,/Process.Start\(new ProcessStartInfo\(Exe,"--run"/);
 });
 test('experimental auto assistant has no force-kill or package/security modifications',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','src','AutoAssistant.cs'),'utf8');

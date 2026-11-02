@@ -20,11 +20,13 @@ node --test tests/windows.test.cjs
 
 输出为 `artifacts/portable/` 和 `artifacts/CodexUsageCard-Windows-preview.zip`，附 SHA256SUMS.txt。编译不修改开始菜单或登录启动，不覆盖运行中的程序；输出目录非空时拒绝覆盖。程序未签名，不要关闭 Windows 安全保护来运行。
 
+开发机桌面环境可用新构建执行 `./tests/detached-start.ps1 -Executable ./artifacts/portable/Codex-Usage-AutoHelper.exe`，验证启动器进程组销毁后监听仍存活。此测试只操作测试进程组，不关闭 Codex；结束后用该构建的 `--stop` 停止监听。CI 不依赖交互桌面，不把此测试视为真实自动接管验收。
+
 ## 使用与管理
 
 1. 把便携目录解压到固定的、当前用户可写的位置。**不要直接在 ZIP 内运行。**
 2. 在解压目录用 PowerShell 执行 `./create-shortcuts.ps1`，五个入口只生成到“管理工具”目录，不添加开始菜单或登录启动项。脚本被组织策略阻止时不要绕过，可直接用下面的命令。
-3. 双击主程序只监听本次会话；“管理工具/启用自动启动助手”会监听并设置本用户登录启动。也可执行 `./Codex-Usage-AutoHelper.exe --enable`（先生成快捷方式）。
+3. 双击主程序只监听本次会话；“管理工具/启用自动启动助手”会监听并设置本用户登录启动。也可执行 `./Codex-Usage-AutoHelper.exe --enable`，不依赖预先生成快捷方式。监听进程由 Windows 桌面外壳启动，不依附于发起操作的 Codex。
 4. 启用前已打开的 Codex 不重启。保存工作、正常完全退出后，从官方图标打开并短暂停留，观察是否出现圆环。
 
 命令参数：`--run` 本次运行、`--stop` 停止监听、`--status` 查看状态、`--disable` 取消登录启动并停止监听、`--self-test` 仅策略自检。它们都不需要管理员权限。

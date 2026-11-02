@@ -170,7 +170,12 @@ internal static class AutoAssistant {
                                 string decision=Decision(age,idle,Foreground()==p.Id,WindowCount(p.Id),
                                     (DateTime.UtcNow-lastAttempt).TotalSeconds<120,PortBusy());
                                 if(decision=="port-already-present") { Log("attach-existing-port; pid="+p.Id);StartAgent();continue; }
-                                if(decision!="handoff") {Log(decision+"; pid="+p.Id);continue;}
+                                if(decision!="handoff") {
+                                    Log(decision+"; pid="+p.Id+"; ageMs="+age.ToString("F1",System.Globalization.CultureInfo.InvariantCulture)
+                                        +"; idleMs="+idle.ToString("F1",System.Globalization.CultureInfo.InvariantCulture)
+                                        +"; inputAfterStartMs="+(age-idle).ToString("F1",System.Globalization.CultureInfo.InvariantCulture));
+                                    continue;
+                                }
                                 lastAttempt=DateTime.UtcNow;SaveAttempt(lastAttempt); // receipt before any quit request
                                 if(stop.WaitOne(0) || InputStamp()!=stamp || Foreground()!=p.Id) {Log("canceled-before-quit");continue;}
                                 Log("request-graceful-quit; pid="+p.Id);

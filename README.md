@@ -4,7 +4,9 @@
 
 This fork adds a Windows implementation based on upstream v0.9.4 Beta.
 See [Windows usage, build instructions and safety limitations](windows/README.md).
-Windows original-icon handoff is **not yet live verified**; no Windows release is published yet.
+Windows original-icon handoff was verified once on the development PC on 2026-11-02.
+See [Windows experimental downloads](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.0-windows-preview.1).
+Earlier starts triggered the input guard for an unresolved reason; this is not a stable or broadly verified release.
 The macOS documentation below is retained from [Lorie7813/codex-usage-card](https://github.com/Lorie7813/codex-usage-card).
 This fork is unofficial and is not affiliated with OpenAI or endorsed by the upstream author.
 

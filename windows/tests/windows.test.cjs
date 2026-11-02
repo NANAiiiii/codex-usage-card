@@ -146,6 +146,7 @@ test('experimental auto assistant has no force-kill or package/security modifica
   assert.match(source,/started<=baseline/);
   assert.match(source,/SaveAttempt\(lastAttempt\)/);
   assert.match(source,/InputStamp\(\)!=stamp/);
+  assert.match(source,/inputAfterStartMs=/);
   assert.doesNotMatch(source,/\.Kill\(|TerminateProcess|Set-ExecutionPolicy|EnableDebugging|takeown|icacls|runas/i);
 });
 function fakeChild(exitCode) {

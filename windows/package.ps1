@@ -1,6 +1,6 @@
 ﻿param([string]$PortableDirectory=(Join-Path $PSScriptRoot 'artifacts\portable'))
 $ErrorActionPreference='Stop'
-$output=Join-Path $PSScriptRoot 'artifacts\CodexUsageCard-Windows-0.1.1-preview.1.zip'
+$output=Join-Path $PSScriptRoot 'artifacts\CodexUsageCard-Windows-0.1.2-preview.1.zip'
 # Reject unexpected files under the two recursively packaged folders.
 foreach($folder in @('lib','docs')){
     $expected=if($folder -eq 'lib'){@('activate-client.ps1','agent.cjs','UsageAgent.exe')}else{@('AUTO-ASSISTANT.md')}

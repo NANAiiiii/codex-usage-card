@@ -21,8 +21,6 @@ internal static class AutoAssistant {
     static string Name {
         get { using(var hash=SHA256.Create()) return "Local\\CodexUsageAuto."+BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(Root.ToLowerInvariant()))).Replace("-","").Substring(0,16); }
     }
-    [StructLayout(LayoutKind.Sequential)] struct FileTime { public uint low,high; }
-    [StructLayout(LayoutKind.Sequential)] struct UniqueProcess { public uint pid; public FileTime started; }
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window,out uint pid);
     delegate bool EnumWindow(IntPtr window,IntPtr data);
@@ -30,10 +28,19 @@ internal static class AutoAssistant {
     [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr window,uint command);
     [DllImport("user32.dll",EntryPoint="GetWindowLongW")] static extern int GetWindowLong(IntPtr window,int index);
-    [DllImport("rstrtmgr.dll",CharSet=CharSet.Unicode)] static extern int RmStartSession(out uint session,uint flags,StringBuilder key);
-    [DllImport("rstrtmgr.dll")] static extern int RmRegisterResources(uint session,uint files,IntPtr names,uint count,[In] UniqueProcess[] apps,uint services,IntPtr serviceNames);
-    [DllImport("rstrtmgr.dll")] static extern int RmShutdown(uint session,uint flags,IntPtr callback);
-    [DllImport("rstrtmgr.dll")] static extern int RmEndSession(uint session);
+    [DllImport("user32.dll")] static extern short GetAsyncKeyState(int key);
+    [StructLayout(LayoutKind.Sequential)] internal struct KeyboardInput {
+        public ushort key,scan; public uint flags,time; public UIntPtr extra;
+    }
+    [StructLayout(LayoutKind.Sequential)] internal struct MouseInput {
+        public int x,y; public uint data,flags,time; public UIntPtr extra;
+    }
+    [StructLayout(LayoutKind.Explicit)] internal struct InputData {
+        [FieldOffset(0)] public KeyboardInput keyboard;
+        [FieldOffset(0)] public MouseInput mouse;
+    }
+    [StructLayout(LayoutKind.Sequential)] internal struct Input { public uint type; public InputData data; }
+    [DllImport("user32.dll",SetLastError=true)] static extern uint SendInput(uint count,Input[] inputs,int size);
 
     static void Log(string state) {
         Directory.CreateDirectory(Run);
@@ -85,6 +92,14 @@ internal static class AutoAssistant {
         return "handoff";
     }
     static bool PortBusy() { return IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(e=>e.Port==39222); }
+    internal static string WaitForRelaunch(Func<bool> appRunning,Func<int,bool> stopped) {
+        // Process exit is not a Shell/packaged-app cleanup barrier. Do not reactivate immediately.
+        for(int elapsed=0;elapsed<3000;elapsed+=250) {
+            if(stopped(250)) return "handoff-canceled-after-quit; reopen Codex manually";
+            if(appRunning()) return "another-instance-started; handoff skipped";
+        }
+        return null;
+    }
     static void StartAgent() {
         Process.Start(new ProcessStartInfo(Path.Combine(Root,"lib","UsageAgent.exe")) {
             UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=Root
@@ -102,18 +117,34 @@ internal static class AutoAssistant {
         info.EnvironmentVariables["CODEX_USAGE_ACTIVATE_DRYRUN"]="0";
         Process.Start(info).Dispose();
     }
+    internal static bool CanSendQuitShortcut(bool targetForeground,bool keysHeld) {
+        return targetForeground && !keysHeld;
+    }
+    static Input Key(ushort key,bool up) {
+        return new Input {type=1,data=new InputData {keyboard=new KeyboardInput {key=key,flags=up?2u:0u}}};
+    }
+    internal static Input[] QuitInputs() {
+        return new[]{Key(0x11,false),Key(0x51,false),Key(0x51,true),Key(0x11,true)};
+    }
+    internal static Input[] ReleaseQuitInputs(uint sent) {
+        if(sent==2) return new[]{Key(0x51,true),Key(0x11,true)};
+        if(sent==1 || sent==3) return new[]{Key(0x11,true)};
+        return new Input[0];
+    }
     static int RequestQuit(Process candidate) {
-        uint session;
-        int result=RmStartSession(out session,0,new StringBuilder(33));
-        if(result!=0) return result;
-        try {
-            long time=candidate.StartTime.ToUniversalTime().ToFileTimeUtc();
-            var target=new UniqueProcess {pid=(uint)candidate.Id,started=new FileTime {low=(uint)time,high=(uint)(time>>32)}};
-            result=RmRegisterResources(session,0,IntPtr.Zero,1,new[]{target},0,IntPtr.Zero);
-            // Register this PID + creation time only. NEVER request RmForceShutdown.
-            if(result==0) result=RmShutdown(session,0,IntPtr.Zero);
-            return result;
-        } finally { RmEndSession(session); }
+        // Ctrl+Q is the client's application Quit command, not window Close or session termination.
+        // Never focus a window or send while the user holds shortcut keys. SendInput batches in order;
+        // a foreground change after the final check remains a platform race (documented below).
+        bool held=new[]{0x10,0x11,0x12,0x5B,0x5C,0x51}.Any(key=>(GetAsyncKeyState(key)&0x8000)!=0);
+        IntPtr window=candidate.MainWindowHandle;
+        uint owner;GetWindowThreadProcessId(window,out owner);
+        if(!CanSendQuitShortcut(window!=IntPtr.Zero && owner==candidate.Id && GetForegroundWindow()==window,held))return 2;
+        var inputs=QuitInputs();
+        if(GetForegroundWindow()!=window)return 2;
+        uint sent=SendInput((uint)inputs.Length,inputs,Marshal.SizeOf(typeof(Input)));
+        var release=ReleaseQuitInputs(sent);
+        if(release.Length>0) SendInput((uint)release.Length,release,Marshal.SizeOf(typeof(Input)));
+        return sent==inputs.Length?0:1;
     }
     static DateTime LastAttempt() {
         long ticks;
@@ -166,8 +197,9 @@ internal static class AutoAssistant {
                                 }
                                 lastAttempt=DateTime.UtcNow;SaveAttempt(lastAttempt); // receipt before any quit request
                                 if(stop.WaitOne(0) || Foreground()!=p.Id) {Log("canceled-before-quit");continue;}
-                                Log("request-graceful-quit; pid="+p.Id);
+                                Log("request-app-quit-shortcut; pid="+p.Id);
                                 int result=RequestQuit(p);
+                                if(result!=0){Log("quit-shortcut-not-sent-or-incomplete; code="+result+"; no retry");continue;}
                                 bool absent=false;
                                 for(int i=0;i<40;i++) {
                                     var remaining=Apps(app);
@@ -181,6 +213,13 @@ internal static class AutoAssistant {
                                     if(!stop.WaitOne(0) && Foreground()==p.Id) RestoreNormal(app);
                                     continue;
                                 }
+                                Log("waiting-for-exit-cleanup; delayMs=3000");
+                                string canceled=WaitForRelaunch(delegate {
+                                    var pending=Apps(app);
+                                    bool running=pending.Length>0;foreach(var r in pending)r.Dispose();
+                                    return running;
+                                },ms=>stop.WaitOne(ms));
+                                if(canceled!=null){Log(canceled);continue;}
                                 // User authorized one startup handoff even while using keyboard/mouse.
                                 if(stop.WaitOne(0)) { Log("handoff-canceled-after-quit; reopen Codex manually");continue; }
                                 var raced=Apps(app);

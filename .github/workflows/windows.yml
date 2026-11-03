@@ -31,3 +31,8 @@ jobs:
       - name: Package allowlisted files
         shell: powershell
         run: ./windows/package.ps1
+      - name: Quit shortcut and relaunch timing (no real input)
+        shell: powershell
+        run: |
+          ./windows/tests/quit-shortcut.ps1 -Executable ./windows/artifacts/portable/Codex-Usage-AutoHelper.exe
+          ./windows/tests/relaunch.ps1 -Executable ./windows/artifacts/portable/Codex-Usage-AutoHelper.exe

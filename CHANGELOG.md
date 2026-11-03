@@ -1,5 +1,14 @@
 # Changelog
 
+## Windows 0.1.2 Preview — 2026-11-03
+
+- Replace Restart Manager session-end shutdown with the client's Ctrl+Q application Quit command. Ordinary window Close was tested and rejected because it left Codex running in the background and required a second click.
+- Wait three seconds after process exit before reactivation; stop requests or another instance cancel the handoff. Keep the original Codex entry point, baseline, foreground, single-window, startup-age and cooldown guards.
+- Check that the candidate window is still foreground and Ctrl/Shift/Alt/Win/Q are not held; send one ordered input batch, release any partially submitted keys and never retry, force-kill, elevate or confirm an exit dialog on the user's behalf.
+- SendInput cannot atomically lock focus to the verified window: a last-moment focus change can send Ctrl+Q to another app. This preview does not eliminate that risk.
+- On 2026-11-03 the user confirmed the repaired original-icon path worked on one Windows PC; logs show Quit, cleanup delay, relaunch and refreshing placed quota. Reboot/login with the new Quit path, other devices and versions remain unverified.
+- Add native shortcut/layout/partial-input and relaunch timing tests to CI. Preserve upstream attribution and all previous release assets.
+
 ## Windows 0.1.1 Preview — 2026-11-02
 
 - Extend fresh-process startup detection to 30 seconds for cold starts.

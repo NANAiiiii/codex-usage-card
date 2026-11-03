@@ -126,11 +126,14 @@ test('Node lookup is portable and checks the supported version',()=>{
 test('release packaging and user docs describe the current input-allowed preview',()=>{
   const root=path.join(__dirname,'..');
   const packaging=fs.readFileSync(path.join(root,'package.ps1'),'utf8');
-  assert.match(packaging,/CodexUsageCard-Windows-0\.1\.1-preview\.1.zip/);
+  assert.match(packaging,/CodexUsageCard-Windows-0\.1\.2-preview\.1.zip/);
   assert.match(packaging,/Unexpected files in/);
   assert.match(packaging,/ReparsePoint/);
   const readme=fs.readFileSync(path.join(root,'README.md'),'utf8');
-  assert.match(readme,/v0\.1\.1-windows-preview\.1/);
+  assert.match(readme,/v0\.1\.2-windows-preview\.1/);
+  assert.match(readme,/Ctrl\+Q/);
+  assert.match(readme,/其他应用/);
+  assert.match(fs.readFileSync(path.join(root,'windows.cjs'),'utf8'),/version:'0\.1\.2-windows-preview\.1'/);
   assert.match(readme,/可能打断/);
   assert.doesNotMatch(readme,/尚待验收|未发布改动/);
 });
@@ -153,7 +156,14 @@ test('watcher is launched by desktop shell rather than inheriting the Codex laun
 });
 test('experimental auto assistant has no force-kill or package/security modifications',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','src','AutoAssistant.cs'),'utf8');
-  assert.match(source,/RmShutdown\(session,0,IntPtr.Zero\)/);
+  assert.match(source,/GetForegroundWindow\(\)!=window\)return 2/);
+  assert.match(source,/CanSendQuitShortcut/);
+  assert.match(source,/GetAsyncKeyState/);
+  assert.match(source,/ReleaseQuitInputs\(sent\)/);
+  assert.doesNotMatch(source,/CloseMainWindow|SendKeys|SetForegroundWindow/);
+  assert.doesNotMatch(source,/rstrtmgr|RmShutdown|RmRegisterResources|RmStartSession/);
+  assert.ok(source.indexOf('if(!absent)')<source.indexOf('Log("reopening-with-card")'));
+  assert.match(source,/Foreground\(\)==p.Id\) RestoreNormal\(app\)/);
   assert.match(source,/started<=baseline/);
   assert.match(source,/SaveAttempt\(lastAttempt\)/);
   assert.doesNotMatch(source,/InputStamp|GetLastInputInfo|skip-user-input/);

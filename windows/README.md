@@ -1,10 +1,12 @@
-# Codex 额度自动助手 — Windows 0.1.1 Preview
+# Codex 额度自动助手 — Windows 0.1.2 Preview
 
-[下载 ZIP 和 SHA256SUMS.txt](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.1-windows-preview.1)
+[下载 ZIP 和 SHA256SUMS.txt](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.2-windows-preview.1)
 
-非官方实验版，在 Codex 侧栏显示剩余额度，不是上下文容量。2026-11-02 已在一台 Windows 开发机通过正常启动、电脑重启后自启、自动接管、圆环显示和额度刷新验收；未验证多设备及未来客户端版本。
+非官方实验版，在 Codex 侧栏显示剩余额度，不是上下文容量。2026-11-03 已在一台 Windows 开发机验证本次修复后的原图标启动接管，用户确认正常，日志及额度刷新状态吻合。新退出方式尚未复测电脑重启，不代表多设备或未来客户端兼容。
 
-**启用即接受启动期间的一次正常退出与重开，可能打断刚开始的输入、任务或切换焦点。键鼠输入不会阻止接管。** 不能接受这一行为请勿启用；程序未签名，不要关闭 Windows 安全保护来运行。
+**启用即接受启动期间的一次正常退出与重开，可能打断刚开始的输入、任务或切换焦点。** 不要求保持键鼠静止，但 Ctrl/Shift/Alt/Win/Q 按住时会取消本次接管。程序未签名，不要关闭 Windows 安全保护来运行。
+
+助手通过 Ctrl+Q 请求应用退出；前台检查与发键无法原子完成，瞬间焦点切换可能影响其他应用。不能接受这一风险请勿启用，详见[工作原理与限制](docs/AUTO-ASSISTANT.md)。
 
 ## 安装与使用
 
@@ -34,10 +36,12 @@
 node --test tests/windows.test.cjs
 ./build-auto-helper.ps1
 ./tests/cold-start.ps1 -Executable ./artifacts/portable/Codex-Usage-AutoHelper.exe
+./tests/quit-shortcut.ps1 -Executable ./artifacts/portable/Codex-Usage-AutoHelper.exe
+./tests/relaunch.ps1 -Executable ./artifacts/portable/Codex-Usage-AutoHelper.exe
 ./package.ps1
 ```
 
-产物在 `artifacts/portable/`、`artifacts/CodexUsageCard-Windows-0.1.1-preview.1.zip` 及 SHA256SUMS.txt。构建不注册启动项或创建快捷方式，输出目录必须为空，不覆盖正在运行的程序。
+产物在 `artifacts/portable/`、`artifacts/CodexUsageCard-Windows-0.1.2-preview.1.zip` 及 SHA256SUMS.txt。构建不注册启动项或创建快捷方式，输出目录必须为空，不覆盖正在运行的程序。
 
 原生纯策略自检：`./artifacts/portable/Codex-Usage-AutoHelper.exe --self-test`。桌面环境可运行 `./tests/detached-start.ps1 -Executable ./artifacts/portable/Codex-Usage-AutoHelper.exe` 验证启动器进程组退出后助手仍存活；测试不关闭 Codex，结束后用同一构建的 `--stop` 停止测试监听。CI 无交互桌面，不把策略测试当成真实启动验收。
 

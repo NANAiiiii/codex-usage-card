@@ -101,7 +101,7 @@ function debugReady(app) {
 }
 function writeStatus(value) {
   fs.mkdirSync(RUN, {recursive:true});
-  fs.writeFileSync(STATUS, JSON.stringify({version:'0.1.1-windows-preview.1', updatedAt:new Date().toISOString(), ...value}, null, 2));
+  fs.writeFileSync(STATUS, JSON.stringify({version:'0.1.2-windows-preview.1', updatedAt:new Date().toISOString(), ...value}, null, 2));
 }
 function liveLock() {
   try {

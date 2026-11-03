@@ -2,16 +2,17 @@
 
 在 Codex 侧栏显示五小时和每周剩余额度。非官方实验性 Windows 移植，不是 OpenAI 官方插件，也不是原作者维护或认可的 Windows 版本。
 
-## Windows 0.1.1 Preview
+## Windows 0.1.2 Preview
 
-[下载 ZIP 和 SHA256 校验值](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.1-windows-preview.1) · [安装与构建](windows/README.md) · [工作原理、限制及卸载](windows/docs/AUTO-ASSISTANT.md)
+[下载 ZIP 和 SHA256 校验值](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.2-windows-preview.1) · [安装与构建](windows/README.md) · [工作原理、限制及卸载](windows/docs/AUTO-ASSISTANT.md)
 
 - 登录 Windows 后助手独立运行；从 Codex 原图标打开时，尝试自动加载额度圆环。
-- 支持新进程最长 30 秒的冷启动等待，不需要停手等待；键鼠输入不再阻止接管。
+- 支持新进程最长 30 秒的冷启动等待，无需保持键鼠静止；发送退出快捷键时若组合键或 Q 正按住则取消本次接管。
 - **首次接管需要正常退出并重开 Codex，可能打断刚开始的输入或任务、切换焦点。** 不能接受该行为请勿启用。
 - 不修改客户端安装包、不提权、不强杀。仅本机调试接口仍有较高权限，不要转发端口。
+- 使用 Ctrl+Q 退出应用后再重开，不改变原图标。瞬间焦点切换可能让快捷键落入其他应用，详见[限制说明](windows/docs/AUTO-ASSISTANT.md#风险与适用范围)。
 
-2026-11-02 已在一台 Windows 开发机验证原图标接管、电脑重启后的登录自启、圆环显示和额度刷新。其他设备及未来客户端版本仍未验证，不是稳定版。
+2026-11-03 已在一台 Windows 开发机验证本次修复后的原图标启动接管，用户确认正常，日志及额度刷新状态吻合。旧版曾验证电脑重启后的登录自启，本次退出方式改动后尚未重新验证电脑重启；其他设备及未来客户端版本仍未验证，不是稳定版。
 
 ## 开发与目录
 

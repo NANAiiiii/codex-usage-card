@@ -1,5 +1,12 @@
 # Changelog
 
+## Windows 0.1.4 Preview — 2026-11-04
+
+- Show service-provided reset times below quota labels: local 24-hour HH:mm for five-hour quota and MM-DD for weekly quota; keep full reset timestamps in tooltips, including single-ring accounts.
+- Clear reset labels when missing, invalid, unavailable or expired under the existing 150-second freshness rule. Do not add requests or infer reset times.
+- Keep percentages below the rings and explicitly centered; use compact muted time chips and a subtle divider. Renderer version is 56. Startup, safety and retry behavior remain unchanged.
+- Add local-time, cross-day timezone, invalid-data and recovery unit tests. All 42 Node tests and native policy regressions pass; independent browser checks cover light/dark themes, 100%/77% alignment and expiry/recovery. User approved the layout on one Windows PC; other devices and all scaling settings remain unverified.
+
 ## Windows 0.1.3 Preview — 2026-11-04
 
 - Replace synchronous runtime PowerShell probes with one bounded asynchronous check at a time; temporary query failures no longer exit the quota backend.

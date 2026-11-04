@@ -1,6 +1,6 @@
 # 安全与隐私 — Windows fork
 
-本说明适用于本仓库的 Windows 0.1.3 Preview 及当前 `windows` 分支，不代表 OpenAI 或上游作者的安全保证。项目是非官方实验性移植，仅完成单台 Windows 电脑的功能验收，不等于安全审计或多设备兼容验证。
+本说明适用于本仓库的 Windows 0.1.4 Preview 及当前 `windows` 分支，不代表 OpenAI 或上游作者的安全保证。项目是非官方实验性移植，仅完成单台 Windows 电脑的功能验收，不等于安全审计或多设备兼容验证。
 
 上游 macOS 项目的安全政策请见[原项目](https://github.com/Lorie7813/codex-usage-card/blob/main/SECURITY.md)。本 Windows 版不使用 LaunchAgents，不修改 macOS Dock，也不采用上游的输入空闲保护策略。
 

@@ -16,6 +16,15 @@ function durationLabel(minutes) {
   }
   return Number.isFinite(minutes) && minutes > 0 ? `${minutes}分钟` : '额度';
 }
+function formatResetText(window) {
+  if (!validWindow(window) || !Number.isFinite(window.resetsAt) || window.resetsAt <= 0) return null;
+  const date = new Date(window.resetsAt * 1000);
+  if (!Number.isFinite(date.getTime())) return null;
+  const pad = n => String(n).padStart(2, '0');
+  return window.windowDurationMins >= 10080
+    ? `${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    : `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 function formatResetCredits(response) {
   const credits = response?.rateLimitResetCredits;
   if (!credits || typeof credits !== 'object') return [];
@@ -32,7 +41,7 @@ function formatPrimaryRateLimits(response) {
   const window = plan.startsWith('pro') ? windows.find(weekly) : windows.find(w=>w.windowDurationMins === 300) ?? (!plan ? windows.find(weekly) : null);
   const details = windows.map(w=>`${durationLabel(w.windowDurationMins)}：剩余 ${remainingPercent(w.usedPercent)}%${formatResetTime(w.resetsAt) ? `，${formatResetTime(w.resetsAt)} 重置` : ''}`);
   const percent = window ? remainingPercent(window.usedPercent) : null;
-  return {percent, windowLabel: window && weekly(window) ? '周' : '', tone:quotaTone(percent),
+  return {percent, resetText:formatResetText(window), windowLabel: window && weekly(window) ? '周' : '', tone:quotaTone(percent),
     title:[window ? `当前显示：${durationLabel(window.windowDurationMins)}额度，剩余${percent}%` : '暂时无法读取 Codex 剩余用量',...details,...formatResetCredits(response)].join('\n')};
 }
 
@@ -96,8 +105,8 @@ function quotaTone(percent) {
   return !Number.isFinite(percent) ? 'muted' : percent < 10 ? 'danger' : percent <= 50 ? 'warning' : 'normal';
 }
 function unavailableValue(current, title = '暂时无法读取 Codex 用量，正在自动重试') {
-  return { ...current, percent: null, title, tone: 'muted', stale: true,
-    rings: current?.rings?.map(ring => ({ ...ring, percent: null, tone: 'muted', title: `${ring.label}：暂不可用` })) ?? null };
+  return { ...current, percent: null, resetText:null, title, tone: 'muted', stale: true,
+    rings: current?.rings?.map(ring => ({ ...ring, percent: null, resetText:null, tone: 'muted', title: `${ring.label}：暂不可用` })) ?? null };
 }
 function formatRateLimits(response) {
   const single = formatPrimaryRateLimits(response);
@@ -111,7 +120,7 @@ function formatRateLimits(response) {
     const percent = validWindow(window) ? remainingPercent(window.usedPercent) : null;
     const reset = formatResetTime(window?.resetsAt);
     const tone = quotaTone(percent);
-    return { key, label, percent, tone,
+    return { key, label, percent, tone, resetText:formatResetText(window),
       title: `${label}：${percent === null ? '暂不可用' : `剩余 ${percent}%`}${reset ? `，${reset} 重置` : ''}` };
   }
   const rings = [
@@ -189,7 +198,7 @@ class AppServerClient extends require('node:events').EventEmitter {
 }
 
 function installUsageBadge() {
-  const VERSION = 53;
+  const VERSION = 56;
   const KEY = '__codexUsageBadge';
   if (window[KEY]?.version === VERSION) {
     window[KEY].place();
@@ -210,7 +219,7 @@ function installUsageBadge() {
     </linearGradient></defs>
     <circle class="usage-ring-track" cx="18" cy="18" r="14"/>
     <circle class="usage-ring-value" cx="18" cy="18" r="14" pathLength="100"/>
-  </svg><span class="usage-number">—</span><span class="usage-window"></span>`;
+  </svg><span class="usage-number">—</span><span class="usage-window"></span><span class="usage-reset">—</span>`;
   }
   const primaryMeter = document.createElement('div');
   primaryMeter.className = 'usage-primary';
@@ -247,9 +256,9 @@ function installUsageBadge() {
       --usage-color: var(--usage-normal-color); --usage-soft: var(--usage-normal-soft);
       --usage-ring-track: var(--usage-normal-track); --usage-glow: var(--usage-normal-glow);
       --usage-width: 34px; --usage-ring-size: 27px;
-      position: relative; box-sizing: border-box; width: var(--usage-width); height: 67px; flex: 0 0 67px;
+      position: relative; box-sizing: border-box; width: var(--usage-width); height: 83px; flex: 0 0 83px;
       align-self: center; margin: 0 0 2px; padding: 7px 2px 5px;
-      display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 7px;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 10px;
       border: 1px solid var(--usage-border); border-radius: 10px; outline: none; color: var(--usage-text);
       background-color: inherit; background-image: none;
       box-shadow: var(--usage-shadow);
@@ -259,11 +268,15 @@ function installUsageBadge() {
     }
     #codex-usage-badge[hidden], #codex-usage-tooltip[hidden] { display: none !important; }
     #codex-usage-badge .usage-primary, #codex-usage-badge .usage-secondary {
-      position: relative; box-sizing: border-box; width: 100%; flex: 0 0 53px;
-      display: flex; flex-direction: column; align-items: center; padding: 29.5px 0 0; gap: 0.5px;
+      position: relative; box-sizing: border-box; width: 100%; flex: 0 0 69px;
+      display: flex; flex-direction: column; align-items: center; padding: 30px 0 0; gap: 1px;
     }
     #codex-usage-badge .usage-secondary[hidden] { display: none !important; }
-    #codex-usage-badge[data-mode="dual"] { height: 133px; flex-basis: 133px; }
+    #codex-usage-badge[data-mode="dual"] { height: 163px; flex-basis: 163px; }
+    #codex-usage-badge .usage-secondary::before {
+      content: ''; position: absolute; top: -5px; left: 5px; right: 5px;
+      height: 1px; background: var(--usage-border);
+    }
     #codex-usage-badge .usage-secondary {
       --usage-color: var(--usage-normal-color); --usage-soft: var(--usage-normal-soft);
       --usage-ring-track: var(--usage-normal-track); --usage-glow: var(--usage-normal-glow);
@@ -289,8 +302,17 @@ function installUsageBadge() {
       transition: stroke-dashoffset 240ms ease;
     }
     #codex-usage-badge .usage-secondary .usage-ring-value { stroke: url(#codex-usage-ring-gradient-weekly); }
-    #codex-usage-badge .usage-number { font-size: 11px; line-height: 14px; font-weight: 700; letter-spacing: -.3px; white-space: nowrap; }
-    #codex-usage-badge .usage-window { font-size: 7.5px; line-height: 9px; font-weight: 400; color: var(--usage-label); white-space: nowrap; }
+    #codex-usage-badge .usage-number {
+      position: static; width: 100%; text-align: center;
+      font-size: 11px; line-height: 14px; font-weight: 650; letter-spacing: -.2px; white-space: nowrap;
+    }
+    #codex-usage-badge .usage-window { font-size: 8px; line-height: 10px; font-weight: 500; color: var(--usage-label); white-space: nowrap; }
+    #codex-usage-badge .usage-reset {
+      box-sizing: border-box; width: 28px; border-radius: 4px;
+      font-size: 8px; line-height: 13px; font-weight: 500; text-align: center;
+      color: var(--usage-text); background: color-mix(in srgb, var(--usage-label) 10%, transparent);
+      white-space: nowrap; letter-spacing: .1px;
+    }
     #codex-usage-badge[data-tone="warning"], #codex-usage-badge .usage-secondary[data-tone="warning"] { --usage-color: var(--usage-warning-color); --usage-soft: var(--usage-warning-soft); --usage-ring-track: var(--usage-warning-track); --usage-glow: var(--usage-warning-glow); }
     #codex-usage-badge[data-tone="danger"], #codex-usage-badge .usage-secondary[data-tone="danger"] { --usage-color: var(--usage-danger-color); --usage-soft: var(--usage-danger-soft); --usage-ring-track: var(--usage-danger-track); --usage-glow: var(--usage-danger-glow); }
     #codex-usage-badge[data-tone="muted"], #codex-usage-badge .usage-secondary[data-tone="muted"] { --usage-color: var(--usage-muted-color); --usage-soft: var(--usage-muted-soft); --usage-ring-track: var(--usage-muted-track); --usage-glow: var(--usage-muted-glow); }
@@ -335,8 +357,8 @@ function installUsageBadge() {
   // A dead agent must not leave a healthy-looking quota indefinitely.
   function expireValue() {
     if (disposed || value.stale || !Number.isFinite(value.updatedAt) || Date.now() - value.updatedAt < 150000) return;
-    value = { ...value, stale: true, percent: null, tone: 'muted', title: '用量数据已过期，正在等待重新连接',
-      rings: value.rings?.map(ring => ({ ...ring, percent: null, tone: 'muted', title: `${ring.label}：暂不可用` })) ?? null };
+    value = { ...value, stale: true, percent: null, resetText:null, tone: 'muted', title: '用量数据已过期，正在等待重新连接',
+      rings: value.rings?.map(ring => ({ ...ring, percent: null, resetText:null, tone: 'muted', title: `${ring.label}：暂不可用` })) ?? null };
     render();
   }
   const freshnessTimer = setInterval(expireValue, 1000);
@@ -387,6 +409,8 @@ function installUsageBadge() {
     element.dataset.tone = meter.tone;
     if (element.querySelector('.usage-window').textContent !== meter.label) element.querySelector('.usage-window').textContent = meter.label;
     if (element.querySelector('.usage-number').textContent !== number) element.querySelector('.usage-number').textContent = number;
+    const resetText = percent === null || value.stale ? '—' : meter.resetText || '—';
+    if (element.querySelector('.usage-reset').textContent !== resetText) element.querySelector('.usage-reset').textContent = resetText;
     const ring = element.querySelector('.usage-ring-value');
     ring.style.stroke = percent === null ? '' : usageRingColor(percent);
     ring.style.strokeDashoffset = String(100 - (percent ?? 0));

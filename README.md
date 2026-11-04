@@ -2,9 +2,11 @@
 
 在 Codex 侧栏显示五小时和每周剩余额度。非官方实验性 Windows 移植，不是 OpenAI 官方插件，也不是原作者维护或认可的 Windows 版本。
 
-## Windows 0.1.3 Preview
+## Windows 0.1.4 Preview
 
-[下载 ZIP 和 SHA256 校验值](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.3-windows-preview.1) · [安装与构建](windows/README.md) · [工作原理、限制及卸载](windows/docs/AUTO-ASSISTANT.md)
+[下载 ZIP 和 SHA256 校验值](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.4-windows-preview.1) · [安装与构建](windows/README.md) · [工作原理、限制及卸载](windows/docs/AUTO-ASSISTANT.md)
+
+0.1.4 增加重置时间：五小时额度显示本地时分，周额度显示月日；百分比位于圆环下方并居中，时间使用淡底标签。读取失败或数据过期时不保留旧时间。2026-11-04 用户已确认本机样式，其他设备仍未全面验证。
 
 0.1.3 修复本机查询超时或额度读取失败导致后台退出的问题：保留双圆环并显示暂不可用，自动重试，恢复后刷新。2026-11-04 用户在同一台电脑确认本地修复可用；模拟故障测试通过，不代表所有断网、休眠或系统异常均已验证。
 

@@ -245,7 +245,7 @@ function createMonitor({app,cli}, {
 }
 function writeStatus(value) {
   fs.mkdirSync(RUN, {recursive:true});
-  fs.writeFileSync(STATUS, JSON.stringify({version:'0.1.3-windows-preview.1', monitorRevision:MONITOR_REVISION, updatedAt:new Date().toISOString(), ...value}, null, 2));
+  fs.writeFileSync(STATUS, JSON.stringify({version:'0.1.4-windows-preview.1', monitorRevision:MONITOR_REVISION, updatedAt:new Date().toISOString(), ...value}, null, 2));
 }
 function liveLock() {
   try {

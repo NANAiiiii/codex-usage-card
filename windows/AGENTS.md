@@ -12,6 +12,7 @@
 - Quit must use the guarded client Ctrl+Q path, never window Close (hides to tray) or Restart Manager session-end. Keep foreground/held-key checks, input release handling, no retries or confirmation bypass, and the 3s post-exit buffer. Document the remaining SendInput focus race prominently.
 - User authorized handoff during normal keyboard/mouse activity and the shortcut risk. No idle requirement; held Ctrl/Shift/Alt/Win/Q cancels this attempt. Do not add focus stealing or elevation.
 - 0.1.2 was user-verified on one PC for the original-icon handoff on 2026-11-03; reboot with the new Quit path is pending. See docs/AUTO-ASSISTANT.md for evidence limits, not broad compatibility claims.
-- Fresh-process age limit is 30s. Keep README and docs/AUTO-ASSISTANT.md aligned. Publish v0.1.3-windows-preview.1 without replacing any older assets.
+- Fresh-process age limit is 30s. Keep README and docs/AUTO-ASSISTANT.md aligned. Publish v0.1.4-windows-preview.1 without replacing any older assets.
+- 0.1.4 adds service-provided local reset labels (HH:mm / MM-DD), cleared on unavailable or expired data. Renderer version 56 keeps percentages below rings and centered; user approved this layout on one PC. Do not put percentages back inside the narrow rings.
 - 0.1.3 keeps runtime probes asynchronous and bounded to 15s, retries local/quota failures independently, and fails closed on unknown ownership. The user confirmed the local patch on 2026-11-04; simulated tests and single-PC confirmation do not cover every offline/sleep scenario.
 - Production directory is a deployment mirror, not a second source repository. Sync current source/docs without overwriting live binaries or clearing runtime state. Temporary build cleanup requires a separate post-report confirmation.

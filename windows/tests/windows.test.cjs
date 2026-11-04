@@ -16,6 +16,40 @@ test('Plus displays two true remaining windows',()=>{
   assert.equal(value.mode,'dual');
   assert.deepEqual(value.rings.map(r=>r.percent),[92,44]);
 });
+
+test('reset labels use local 24-hour time and month-day without changing full tooltips',()=>{
+  const data=snapshot();
+  data.rateLimits.primary.resetsAt=new Date(2026,10,9,18,30).getTime()/1000;
+  data.rateLimits.secondary.resetsAt=new Date(2026,10,12,8,5).getTime()/1000;
+  const value=formatRateLimits(data);
+  assert.deepEqual(value.rings.map(r=>r.resetText),['18:30','11-12']);
+  assert.match(value.rings[0].title,/18:30/);
+  assert.match(value.rings[1].title,/08:05/);
+  data.rateLimits.planType='pro';
+  assert.equal(formatRateLimits(data).resetText,'11-12');
+});
+
+test('reset labels follow local timezone across UTC midnight',()=>{
+  const {execFileSync}=require('node:child_process');
+  const script=`const {formatRateLimits}=require('./lib/agent.cjs'); console.log(JSON.stringify(formatRateLimits({rateLimits:{planType:'plus',primary:{usedPercent:10,windowDurationMins:300,resetsAt:Date.parse('2026-11-09T23:30:00Z')/1000},secondary:{usedPercent:20,windowDurationMins:10080,resetsAt:Date.parse('2026-11-09T23:30:00Z')/1000}}}).rings.map(r=>r.resetText)))`;
+  const result=execFileSync(process.execPath,['-e',script],{cwd:path.join(__dirname,'..'),env:{...process.env,TZ:'Asia/Shanghai'},encoding:'utf8'});
+  assert.deepEqual(JSON.parse(result),['07:30','11-10']);
+});
+
+test('missing, invalid or stale reset times are cleared and recover with new data',()=>{
+  for(const resetsAt of [undefined,null,0,-1,NaN,Infinity,1e30,'1800000000']){
+    const data=snapshot();data.rateLimits.primary.resetsAt=resetsAt;
+    assert.equal(formatRateLimits(data).rings[0].resetText,null);
+  }
+  const data=snapshot();delete data.rateLimits.primary.usedPercent;
+  assert.equal(formatRateLimits(data).rings[0].resetText,null);
+  const fresh=formatRateLimits(snapshot());
+  assert.ok(fresh.rings.every(r=>r.resetText));
+  const stale=unavailableValue(fresh);
+  assert.equal(stale.resetText,null);
+  assert.deepEqual(stale.rings.map(r=>r.resetText),[null,null]);
+  assert.ok(formatRateLimits(snapshot()).rings.every(r=>r.resetText));
+});
 test('Pro uses weekly window, not a fake five-hour value',()=>{
   const value=formatRateLimits(snapshot('pro'));
   assert.equal(value.percent,44);
@@ -126,14 +160,14 @@ test('Node lookup is portable and checks the supported version',()=>{
 test('release packaging and user docs describe the current input-allowed preview',()=>{
   const root=path.join(__dirname,'..');
   const packaging=fs.readFileSync(path.join(root,'package.ps1'),'utf8');
-  assert.match(packaging,/CodexUsageCard-Windows-0\.1\.3-preview\.1.zip/);
+  assert.match(packaging,/CodexUsageCard-Windows-0\.1\.4-preview\.1.zip/);
   assert.match(packaging,/Unexpected files in/);
   assert.match(packaging,/ReparsePoint/);
   const readme=fs.readFileSync(path.join(root,'README.md'),'utf8');
-  assert.match(readme,/v0\.1\.3-windows-preview\.1/);
+  assert.match(readme,/v0\.1\.4-windows-preview\.1/);
   assert.match(readme,/Ctrl\+Q/);
   assert.match(readme,/其他应用/);
-  assert.match(fs.readFileSync(path.join(root,'windows.cjs'),'utf8'),/version:'0\.1\.3-windows-preview\.1'/);
+  assert.match(fs.readFileSync(path.join(root,'windows.cjs'),'utf8'),/version:'0\.1\.4-windows-preview\.1'/);
   assert.match(readme,/可能打断/);
   assert.doesNotMatch(readme,/尚待验收|未发布改动/);
 });

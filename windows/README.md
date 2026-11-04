@@ -1,6 +1,8 @@
-# Codex 额度自动助手 — Windows 0.1.3 Preview
+# Codex 额度自动助手 — Windows 0.1.4 Preview
 
-[下载 ZIP 和 SHA256SUMS.txt](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.3-windows-preview.1)
+[下载 ZIP 和 SHA256SUMS.txt](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.4-windows-preview.1)
+
+0.1.4：额度标签下新增重置时间，五小时显示本地时区 `HH:mm`，周额度显示 `MM-DD`，悬浮保留完整日期时间。百分比在圆环下方居中；时间缺失、读取失败或数据过期时显示 `—`。2026-11-04 用户确认本机样式，其他设备仍未全面验证。
 
 0.1.3：本机查询超时或额度读取失败后，后台保留运行并自动重试；额度失败时双圆环显示暂不可用，不保留旧百分比。2026-11-04 用户确认本地修复可用；其他设备及所有断网、休眠场景仍未全面验证。
 
@@ -43,7 +45,7 @@ node --test tests/windows.test.cjs
 ./package.ps1
 ```
 
-产物在 `artifacts/portable/`、`artifacts/CodexUsageCard-Windows-0.1.3-preview.1.zip` 及 SHA256SUMS.txt。构建不注册启动项或创建快捷方式，输出目录必须为空，不覆盖正在运行的程序。
+产物在 `artifacts/portable/`、`artifacts/CodexUsageCard-Windows-0.1.4-preview.1.zip` 及 SHA256SUMS.txt。构建不注册启动项或创建快捷方式，输出目录必须为空，不覆盖正在运行的程序。
 
 原生纯策略自检：`./artifacts/portable/Codex-Usage-AutoHelper.exe --self-test`。桌面环境可运行 `./tests/detached-start.ps1 -Executable ./artifacts/portable/Codex-Usage-AutoHelper.exe` 验证启动器进程组退出后助手仍存活；测试不关闭 Codex，结束后用同一构建的 `--stop` 停止测试监听。CI 无交互桌面，不把策略测试当成真实启动验收。
 

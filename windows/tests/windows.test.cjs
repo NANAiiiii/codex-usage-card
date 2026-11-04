@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const path=require('node:path');
 const fs=require('node:fs');
 const {formatRateLimits,isMainWindow,CdpSession,AppServerClient,resolveCodexBin,unavailableValue}=require('../lib/agent.cjs');
-const {safeListeners,desktopLaunchSpec,launchDesktop}=require('../windows.cjs');
+const {safeListeners,desktopLaunchSpec,launchDesktop,classifyProbe,probeDesktop,createMonitor,retryDelay}=require('../windows.cjs');
 const {EventEmitter}=require('node:events');
 const app='C:\\Program Files\\WindowsApps\\OpenAI.Codex_example\\app\\ChatGPT.exe';
 const snapshot=(planType='plus')=>({rateLimits:{limitId:'codex',planType,
@@ -126,14 +126,14 @@ test('Node lookup is portable and checks the supported version',()=>{
 test('release packaging and user docs describe the current input-allowed preview',()=>{
   const root=path.join(__dirname,'..');
   const packaging=fs.readFileSync(path.join(root,'package.ps1'),'utf8');
-  assert.match(packaging,/CodexUsageCard-Windows-0\.1\.2-preview\.1.zip/);
+  assert.match(packaging,/CodexUsageCard-Windows-0\.1\.3-preview\.1.zip/);
   assert.match(packaging,/Unexpected files in/);
   assert.match(packaging,/ReparsePoint/);
   const readme=fs.readFileSync(path.join(root,'README.md'),'utf8');
-  assert.match(readme,/v0\.1\.2-windows-preview\.1/);
+  assert.match(readme,/v0\.1\.3-windows-preview\.1/);
   assert.match(readme,/Ctrl\+Q/);
   assert.match(readme,/其他应用/);
-  assert.match(fs.readFileSync(path.join(root,'windows.cjs'),'utf8'),/version:'0\.1\.2-windows-preview\.1'/);
+  assert.match(fs.readFileSync(path.join(root,'windows.cjs'),'utf8'),/version:'0\.1\.3-windows-preview\.1'/);
   assert.match(readme,/可能打断/);
   assert.doesNotMatch(readme,/尚待验收|未发布改动/);
 });
@@ -193,4 +193,144 @@ test('startup propagates an OS launch error',async()=>{
   const child=new EventEmitter();
   queueMicrotask(()=>child.emit('error',Object.assign(new Error('Access denied'),{code:'EACCES'})));
   await assert.rejects(launchDesktop({app},{spawn:()=>child,report:()=>{}}),/Access denied/);
+});
+
+const readyProbe={kind:'ready',fingerprint:'test-client-1'};
+const dualQuota=snapshot();
+const flush=()=>new Promise(resolve=>setImmediate(resolve));
+function monitorHarness(probes=[readyProbe]) {
+  let clock=0,probeCount=0;
+  const states=[],logs=[],updates=[],clients=[];
+  const session={evaluate:async()=>({result:{value:{placed:true}}}),close(){}};
+  const injector={sessions:new Map(),currentValue:null,scans:0,
+    async scan(){this.scans++;this.sessions.set('main',session);},
+    async update(value){this.currentValue=value;updates.push(structuredClone(value));},
+    stop(){this.sessions.clear();}};
+  const h={states,logs,updates,clients,injector,probeCalls:()=>probeCount,now:()=>clock,advance:ms=>{clock+=ms;},
+    probe:async()=>probes[Math.min(probeCount++,probes.length-1)],
+    read:async client=>{client.emit('rate-limits',dualQuota);}};
+  h.monitor=createMonitor({app,cli:'fake'}, {
+    probe:(...args)=>h.probe(...args),injector,now:()=>clock,
+    write:value=>states.push(structuredClone(value)),report:(...args)=>logs.push(args),
+    makeClient:()=>{const c=new EventEmitter();c.stops=0;c.start=()=>h.read(c);c.refresh=()=>h.read(c);c.stop=()=>{c.stops++;};clients.push(c);return c;}
+  });
+  return h;
+}
+async function healthy(h){await h.monitor.tick();await flush();await h.monitor.tick();}
+
+test('desktop probes distinguish absence, unknown ownership and unsafe listeners',()=>{
+  const row={address:'127.0.0.1',path:app,pid:123,started:'100'};
+  assert.equal(classifyProbe({appPresent:true,listeners:[row]},app).kind,'ready');
+  assert.equal(classifyProbe({appPresent:false,listeners:[]},app).kind,'exited');
+  assert.equal(classifyProbe({appPresent:true,listeners:[]},app).kind,'absent');
+  assert.equal(classifyProbe({appPresent:null,listeners:[]},app).kind,'transient');
+  assert.equal(classifyProbe({appPresent:true,listeners:[{...row,path:null}]},app).kind,'transient');
+  assert.equal(classifyProbe({appPresent:true,listeners:[{...row,path:''}]},app).kind,'transient');
+  for(const r of [{...row,address:'0.0.0.0'},{...row,path:'C:\\Other.exe'}])
+    assert.equal(classifyProbe({appPresent:true,listeners:[r]},app).kind,'unsafe');
+  for(const value of [null,{},[],{appPresent:true,listeners:[{}]}])
+    assert.equal(classifyProbe(value,app).kind,'transient');
+});
+test('runtime PowerShell probe is asynchronous, bounded and abortable; bad output is transient',async()=>{
+  const signal=new AbortController().signal;
+  for(const result of ['timeout','invalid','ok']){
+    const exec=(command,args,options,done)=>{
+      assert.match(command,/powershell\.exe$/i);assert.equal(options.timeout,15000);
+      assert.equal(options.signal,signal);assert.equal(options.windowsHide,true);
+      assert.equal(options.env.CODEX_USAGE_APP_PATH,app);
+      queueMicrotask(()=>done(result==='timeout'?Object.assign(new Error('timeout'),{code:'ETIMEDOUT'}):null,
+        result==='ok'?JSON.stringify({appPresent:true,listeners:[]}):'not-json'));
+    };
+    const value=await probeDesktop(app,{exec,signal});
+    assert.equal(value.kind,result==='ok'?'absent':'transient');
+  }
+  const result=await probeDesktop(app,{exec:(_c,_a,_o,done)=>done(Object.assign(new Error('missing'),{code:'ENOENT'}))});
+  assert.equal(result.kind,'fatal');
+});
+test('independent exponential retry schedules cap at 30 seconds',()=>{
+  assert.deepEqual([1,2,3,4,5].map(retryDelay),[5000,10000,20000,30000,30000]);
+});
+test('PowerShell timeout keeps monitor alive, pauses all CDP work and recovers',async()=>{
+  const h=monitorHarness([readyProbe,{kind:'transient',code:'ETIMEDOUT'},readyProbe]);
+  await healthy(h);assert.equal(h.updates.at(-1).mode,'dual');
+  h.advance(10000);await h.monitor.tick();
+  const scans=h.injector.scans,updates=h.updates.length;
+  assert.equal(h.states.at(-1).state,'local-check-retrying');assert.equal(h.monitor.done,false);
+  assert.equal(h.injector.sessions.size,0);
+  await h.monitor.tick();assert.equal(h.injector.scans,scans);assert.equal(h.updates.length,updates);
+  h.advance(5000);await healthy(h);
+  assert.equal(h.states.at(-1).state,'placed');assert.equal(h.probeCalls(),3);
+  await h.monitor.close();
+});
+test('quota failure clears both percentages, retains two rings and retries after recovery',async()=>{
+  const h=monitorHarness();await healthy(h);
+  h.read=async()=>{throw new Error('offline')};h.advance(60000);await h.monitor.tick();await flush();await h.monitor.tick();
+  assert.equal(h.states.at(-1).state,'read-failed');
+  assert.equal(h.updates.at(-1).mode,'dual');assert.deepEqual(h.updates.at(-1).rings.map(r=>r.percent),[null,null]);
+  const old=h.clients[0];old.emit('rate-limits',dualQuota);await h.monitor.tick();
+  assert.deepEqual(h.updates.at(-1).rings.map(r=>r.percent),[null,null]);
+  h.read=async c=>c.emit('rate-limits',dualQuota);h.advance(5000);await healthy(h);
+  assert.deepEqual(h.updates.at(-1).rings.map(r=>r.percent),[92,44]);
+  await h.monitor.close();
+});
+test('port absence with a live app retries, while confirmed app exit stops normally',async()=>{
+  const h=monitorHarness([{kind:'absent'},readyProbe,{kind:'exited'}]);
+  await h.monitor.tick();assert.equal(h.monitor.done,false);assert.equal(h.injector.scans,0);
+  h.advance(5000);await healthy(h);assert.equal(h.states.at(-1).state,'placed');
+  h.advance(10000);await h.monitor.tick();assert.equal(h.monitor.done,true);
+  await h.monitor.close();assert.equal(h.states.at(-1).running,false);
+});
+test('unsafe ownership never sends CDP operations, including cleanup',async()=>{
+  const h=monitorHarness([{kind:'unsafe',code:'UNTRUSTED_LISTENER'}]);
+  await assert.rejects(h.monitor.tick(),/39222/);await h.monitor.close();
+  assert.equal(h.injector.scans,0);assert.equal(h.updates.length,0);
+  assert.equal(h.states.at(-1).state,'security-blocked');
+});
+test('query retries do not overlap or emit repeated state logs',async()=>{
+  const h=monitorHarness([{kind:'transient',code:'ETIMEDOUT'}]);
+  await Promise.all([h.monitor.tick(),h.monitor.tick()]);assert.equal(h.probeCalls(),1);
+  h.advance(5000);await h.monitor.tick();h.advance(10000);await h.monitor.tick();
+  assert.equal(h.probeCalls(),3);assert.equal(h.logs.length,1);
+  await h.monitor.close();
+});
+test('slow quota reads do not block health checks, overlap, or publish after stop',async()=>{
+  const h=monitorHarness();let release;
+  h.read=c=>new Promise(resolve=>{release=()=>{c.emit('rate-limits',dualQuota);resolve();};});
+  await h.monitor.tick();assert.equal(h.clients.length,1);
+  h.advance(10000);await h.monitor.tick();assert.equal(h.probeCalls(),2);assert.equal(h.clients.length,1);
+  h.monitor.stop();release();await flush();await h.monitor.tick();await h.monitor.close();
+  assert.ok(h.updates.every(v=>v.stale));
+});
+test('stop aborts an in-flight probe and does not clean up through unverified CDP',async()=>{
+  const h=monitorHarness();let observed;
+  h.probe=(_app,{signal})=>new Promise(resolve=>{observed=signal;signal.addEventListener('abort',()=>resolve({kind:'transient',code:'ABORTED'}),{once:true});});
+  const pending=h.monitor.tick();h.monitor.stop();await pending;await h.monitor.close();
+  assert.equal(observed.aborted,true);assert.equal(h.injector.scans,0);assert.equal(h.updates.length,0);
+});
+test('uncertain or unsafe ownership after a healthy connection never evaluates cleanup',async()=>{
+  for(const result of [{kind:'transient',code:'UNKNOWN_OWNER'},{kind:'unsafe',code:'UNTRUSTED_LISTENER'}]){
+    const h=monitorHarness([readyProbe,result]);await healthy(h);
+    let evaluations=0;for(const s of h.injector.sessions.values())s.evaluate=async()=>{evaluations++;return {};};
+    h.advance(10000);
+    if(result.kind==='unsafe')await assert.rejects(h.monitor.tick(),/39222/);else await h.monitor.tick();
+    await h.monitor.close();assert.equal(evaluations,0);
+  }
+});
+test('long outages back off quota reads without restarting the monitor or duplicating reads',async()=>{
+  const h=monitorHarness();await healthy(h);let reads=0;
+  h.read=async()=>{reads++;throw new Error('offline');};
+  h.advance(60000);
+  for(const wait of [5000,10000,20000,30000,30000]){
+    await h.monitor.tick();await flush();await h.monitor.tick();
+    assert.equal(h.states.at(-1).state,'read-failed');
+    assert.equal(h.states.at(-1).retryAt,h.now()+wait);
+    const count=reads;h.advance(wait-1);await h.monitor.tick();await flush();assert.equal(reads,count);
+    h.advance(1);
+  }
+  assert.equal(h.monitor.done,false);assert.equal(reads,5);await h.monitor.close();
+});
+test('reconnection forces a new ownership probe instead of using a cached check',async()=>{
+  const h=monitorHarness([readyProbe,{kind:'unsafe',code:'UNTRUSTED_LISTENER'}]);await healthy(h);
+  h.injector.sessions.clear();await assert.rejects(h.monitor.tick(),/39222/);
+  assert.equal(h.probeCalls(),2);await h.monitor.close();
 });

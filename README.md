@@ -2,9 +2,11 @@
 
 在 Codex 侧栏显示五小时和每周剩余额度。非官方实验性 Windows 移植，不是 OpenAI 官方插件，也不是原作者维护或认可的 Windows 版本。
 
-## Windows 0.1.2 Preview
+## Windows 0.1.3 Preview
 
-[下载 ZIP 和 SHA256 校验值](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.2-windows-preview.1) · [安装与构建](windows/README.md) · [工作原理、限制及卸载](windows/docs/AUTO-ASSISTANT.md)
+[下载 ZIP 和 SHA256 校验值](https://github.com/NANAiiiii/codex-usage-card/releases/tag/v0.1.3-windows-preview.1) · [安装与构建](windows/README.md) · [工作原理、限制及卸载](windows/docs/AUTO-ASSISTANT.md)
+
+0.1.3 修复本机查询超时或额度读取失败导致后台退出的问题：保留双圆环并显示暂不可用，自动重试，恢复后刷新。2026-11-04 用户在同一台电脑确认本地修复可用；模拟故障测试通过，不代表所有断网、休眠或系统异常均已验证。
 
 - 登录 Windows 后助手独立运行；从 Codex 原图标打开时，尝试自动加载额度圆环。
 - 支持新进程最长 30 秒的冷启动等待，无需保持键鼠静止；发送退出快捷键时若组合键或 Q 正按住则取消本次接管。

@@ -1,5 +1,13 @@
 # Changelog
 
+## Windows 0.1.3 Preview — 2026-11-04
+
+- Replace synchronous runtime PowerShell probes with one bounded asynchronous check at a time; temporary query failures no longer exit the quota backend.
+- Retry local checks and quota reads independently with 5/10/20/30-second capped backoff. Keep both rings unavailable without old percentages on quota failures, and restore fresh values after recovery.
+- Pause CDP requests when ownership cannot be confirmed and revalidate before reconnecting. Wrong-process or non-loopback listeners remain fatal safety errors; startup handoff, Ctrl+Q and tray behavior are unchanged.
+- Prevent overlapping quota reads and stale callbacks after stop; rate-limit temporary failure logs rather than repeatedly showing dialogs.
+- Add simulated timeout, malformed output, outage/recovery, retry timing, cancellation and fail-closed regression tests. All 39 Node tests and existing native policy checks pass. User confirmed the local patch on one Windows PC; other devices and all offline/sleep scenarios remain unverified.
+
 ## Windows 0.1.2 Preview — 2026-11-03
 
 - Replace Restart Manager session-end shutdown with the client's Ctrl+Q application Quit command. Ordinary window Close was tested and rejected because it left Codex running in the background and required a second click.
